@@ -268,10 +268,5 @@ These thresholds live in the dashboard's JavaScript — adjust them to match you
 
 ---
 
-## 📄 License
 
-Add your preferred license (MIT, Apache 2.0, etc.) here before publishing.
-
-## 🤝 Contributing
-
-Pull requests are welcome — especially for improved wiring safety, better thresholds, or UI polish.
+Team Ginza:  Hanish , Gagan , Atharv
