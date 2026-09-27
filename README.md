@@ -1,124 +1,109 @@
 # 🛠️ Manhole Worker Safety & Smart Monitoring System
 
-A simple, low-cost safety system for workers in manholes and other confined spaces. It uses an **ESP32** microcontroller with sensors to check the air, temperature, distance to walls/obstacles, and tilt/orientation — then shows everything live on a webpage you can open on your phone. No internet, no app, no SIM card needed — the ESP32 creates its own Wi-Fi network that you connect to directly.
+A low-cost, ESP32-based safety system for workers in manholes and other confined spaces. It checks the air, temperature, distance to obstacles, and tilt — then shows everything live on a webpage you open on your phone. No internet, no app, no SIM card — each ESP32 creates its own Wi-Fi hotspot that you connect to directly.
 
-This repo also includes two optional extra modules: a **camera module** for live video, and a **robot driving controller** if the unit is mounted on wheels.
+This repo contains **three independent sketches**. Each runs on its own ESP32 board and creates its own Wi-Fi network:
+
+| # | Sketch | Board | Purpose |
+|---|---|---|---|
+| 1 | `Manhole_monitoring_bot_esp32code.ino` | Regular ESP32 Dev Board | **Main safety dashboard** — gas, temperature, distance, tilt, servo, LEDs |
+| 2 | `manhole_bot_espcam_servo_code.ino` | ESP32-CAM (AI-Thinker) | Live video feed + pan servo (optional add-on) |
+| 3 | `esp32_web_robot.ino` | Regular ESP32 Dev Board + motor driver | Drives a 2-motor wheeled chassis (optional add-on) |
+
+All wiring details below are taken directly from the pin definitions in each `.ino` file, so they match exactly what the code expects.
 
 ---
 
 ## 🧠 How It Works (Simple Version)
 
-1. The ESP32 is wired to several sensors (gas, temperature, distance, tilt).
-2. It reads all sensors continuously.
-3. It creates its own Wi-Fi hotspot (Access Point).
+1. The ESP32 is wired to sensors (gas, temperature, distance, tilt) and/or a motor driver / camera.
+2. It reads the sensors continuously.
+3. It creates its own Wi-Fi hotspot (Access Point) — no router needed.
 4. You connect your phone/laptop to that Wi-Fi.
-5. You open a webpage in your browser — it shows live numbers and color-coded warnings (🟢 Safe, 🟡 Warning, 🔴 Danger).
-6. You can also control a servo motor and two LEDs from the same page.
-
----
-
-## 📦 Files in This Repository
-
-| File | What it does |
-|---|---|
-| `Manhole_monitoring_bot_esp32code.ino` | **Main project.** Reads all sensors and runs the live safety dashboard. |
-| `manhole_bot_espcam_servo_code.ino` | Optional camera module — live video, snapshots, and a pan servo. |
-| `esp32_web_robot.ino` | Optional — drives a 2-motor wheeled robot from a webpage. |
-| `ESP32_CAM_GUIDE.md` | Extra setup guide just for the camera module. |
-
----
-
-## 🎯 What It Measures / Controls
-
-- **Gas levels** (MQ gas sensor) — warns of dangerous air
-- **Temperature & humidity** (DHT11)
-- **Distance to obstacles/walls** in 4 directions (4x ultrasonic sensors)
-- **Tilt / orientation / motion** (MPU-6050 gyroscope+accelerometer)
-- **Pan servo motor** — aim a sensor or light
-- **2 LEDs** — turn on/off remotely (e.g. warning light)
-
-If any sensor is unplugged or not responding, the dashboard still shows moving numbers (a safe simulated value) instead of freezing, so it always looks "alive."
+5. You open a webpage that shows live numbers with color-coded warnings (🟢 Safe, 🟡 Warning, 🔴 Danger) and lets you control the servo/LEDs/motors/camera.
 
 ---
 
 ## 🧰 What You Need (Shopping List)
 
-| Part | Qty | Notes |
-|---|---|---|
-| ESP32 Dev Board (e.g. ESP32-WROOM-32) | 1 | Main brain |
-| HC-SR04 Ultrasonic Sensor | 4 | Distance sensing |
-| MQ-2 / MQ-135 Gas Sensor (analog) | 1 | Air quality |
-| DHT11 Temperature & Humidity Sensor | 1 | |
-| MPU-6050 Gyroscope/Accelerometer | 1 | |
-| SG90 Servo Motor | 1 | |
-| LED | 2 | + 220Ω resistors |
-| Breadboard + jumper wires | - | |
-| 5V power supply (2A or more) | 1 | USB power bank works for testing |
+**For the main monitoring node:**
 
-Optional (camera add-on): ESP32-CAM (AI-Thinker) board + FTDI/USB-TTL programmer.
-Optional (robot add-on): L298N motor driver + 2 DC motors + chassis.
+| Part | Qty |
+|---|---|
+| ESP32 Dev Board | 1 |
+| HC-SR04 Ultrasonic Sensor | 4 |
+| MQ-2 / MQ-135 Gas Sensor (analog output) | 1 |
+| DHT11 Temperature & Humidity Sensor | 1 |
+| MPU-6050 Gyroscope/Accelerometer | 1 |
+| SG90 Servo Motor | 1 |
+| LED + 220Ω resistor | 2 |
+| Breadboard + jumper wires | - |
+| 5V regulated power supply (2A+) | 1 |
+
+**For the optional camera add-on:** ESP32-CAM (AI-Thinker) board, an SG90 servo, a USB-to-TTL (FTDI) programmer.
+
+**For the optional robot-drive add-on:** L298N (or similar) 2-channel motor driver, 2 DC gear motors + wheels, chassis, separate motor battery pack.
 
 ---
 
-## 🔌 CONNECTIONS GUIDE (Wiring)
+## 🔌 CONNECTIONS GUIDE #1 — Main Monitoring Node
+*(`Manhole_monitoring_bot_esp32code.ino`)*
 
-> ⚠️ Always connect **GND** from every sensor to a common **GND** on the ESP32. Power sensors from the **3.3V** pin unless noted; the servo needs **5V** (from an external supply if possible, not directly off the ESP32's onboard regulator, to avoid brownouts).
+> ⚠️ Connect the **GND** of every sensor to the ESP32's GND (all grounds must be common). Power sensors from **3.3V** unless a table says otherwise. The servo should get 5V from an external supply if possible.
 
-### 1. Ultrasonic Sensors (HC-SR04) ×4
-Each sensor has 4 pins: `VCC`, `TRIG`, `ECHO`, `GND`.
+### Ultrasonic Sensors (HC-SR04) — 4 units
+Each has 4 pins: `VCC`, `TRIG`, `ECHO`, `GND`.
 
-| Sensor | VCC | TRIG → ESP32 | ECHO → ESP32 | GND |
+| Sensor | VCC | TRIG → ESP32 GPIO | ECHO → ESP32 GPIO | GND |
 |---|---|---|---|---|
-| Ultrasonic #1 | 5V | GPIO 5 | GPIO 18 | GND |
-| Ultrasonic #2 | 5V | GPIO 19 | GPIO 21 | GND |
-| Ultrasonic #3 | 5V | GPIO 32 | GPIO 14 | GND |
-| Ultrasonic #4 | 5V | GPIO 25 | GPIO 26 | GND |
+| Ultrasonic #1 | 5V | **5** | **18** | GND |
+| Ultrasonic #2 | 5V | **19** | **21** | GND |
+| Ultrasonic #3 | 5V | **32** | **14** | GND |
+| Ultrasonic #4 | 5V | **25** | **26** | GND |
 
-> 💡 Tip: HC-SR04 `ECHO` pin outputs 5V, but ESP32 GPIOs are 3.3V-only. For long-term reliability, use a simple voltage divider (e.g. 1kΩ + 2kΩ resistors) on each ECHO line to protect the ESP32. The demo code works without it, but it's safer for permanent installs.
+> 💡 HC-SR04's ECHO pin outputs 5V, but ESP32 GPIOs read 3.3V max. For a permanent build, add a voltage divider (e.g. 1kΩ in series + 2kΩ to GND) on every ECHO line to protect the pin.
 
-### 2. Gas Sensor (MQ-2 / MQ-135)
+### Gas Sensor (MQ-2 / MQ-135)
 | Sensor Pin | Connect to |
 |---|---|
 | VCC | 5V |
 | GND | GND |
-| AO (Analog Out) | GPIO 34 |
+| **AO** (Analog Out) | **GPIO 34** |
 | DO (Digital Out) | Not used |
 
-### 3. DHT11 (Temperature & Humidity)
+### DHT11 (Temperature & Humidity)
 | Sensor Pin | Connect to |
 |---|---|
 | VCC | 3.3V |
 | GND | GND |
-| DATA | GPIO 4 |
+| **DATA** | **GPIO 4** |
 
-> 💡 If your DHT11 module doesn't have a built-in pull-up resistor, add a 10kΩ resistor between VCC and DATA.
+> 💡 Add a 10kΩ pull-up resistor between VCC and DATA if your DHT11 module doesn't already have one built in.
 
-### 4. MPU-6050 (Gyroscope / Accelerometer)
-This uses **I2C**, so only 4 wires:
-
+### MPU-6050 (Gyroscope / Accelerometer) — I2C
 | Sensor Pin | Connect to |
 |---|---|
 | VCC | 3.3V |
 | GND | GND |
-| SDA | GPIO 22 |
-| SCL | GPIO 23 |
+| **SDA** | **GPIO 22** |
+| **SCL** | **GPIO 23** |
 
-### 5. Servo Motor (Pan Control)
+### Servo Motor (Pan Control)
 | Servo Wire | Connect to |
 |---|---|
-| Signal (usually orange/yellow) | GPIO 33 |
+| Signal (orange/yellow) | **GPIO 33** |
 | Power (red) | 5V (external supply recommended) |
 | Ground (brown/black) | GND (shared with ESP32) |
 
-### 6. LEDs (Status Indicators)
-| LED | Long leg (+) via 220Ω resistor → | Short leg (–) → |
+### LEDs (Status Indicators)
+| LED | Positive leg → 220Ω resistor → | Negative leg → |
 |---|---|---|
-| LED 1 | GPIO 13 | GND |
-| LED 2 | GPIO 2 | GND |
+| LED 1 | **GPIO 13** | GND |
+| LED 2 | **GPIO 2** | GND |
 
-### Quick Wiring Summary Table
+### Full Pin Summary — Monitoring Node
 
-| Function | GPIO Pin |
+| Function | GPIO |
 |---|---|
 | Ultrasonic 1 TRIG / ECHO | 5 / 18 |
 | Ultrasonic 2 TRIG / ECHO | 19 / 21 |
@@ -131,45 +116,87 @@ This uses **I2C**, so only 4 wires:
 | LED 1 | 13 |
 | LED 2 | 2 |
 
-### Camera Module Wiring (Optional — ESP32-CAM)
-The camera pins are fixed by the ESP32-CAM board itself (already wired internally), so you only need to add:
+**Wi-Fi:** SSID `ESP32_ROBOT`, password `12345678` → dashboard at `http://192.168.4.1`
+
+---
+
+## 🔌 CONNECTIONS GUIDE #2 — Robot Drive Module (Optional)
+*(`esp32_web_robot.ino`, two-channel motor driver such as L298N)*
+
+> ⚠️ Motors draw much more current than the ESP32 can supply — always power the motor driver's motor terminals from a **separate battery pack**, and connect that battery's GND to the ESP32's GND (common ground is required, even with separate power).
+
+| Motor Driver Pin | Connect to ESP32 GPIO | Purpose |
+|---|---|---|
+| IN1 (Left motor direction A) | **GPIO 18** | Left forward |
+| IN2 (Left motor direction B) | **GPIO 19** | Left backward |
+| ENA (Left motor speed/PWM) | **GPIO 21** | Left speed control |
+| IN3 (Right motor direction A) | **GPIO 22** | Right forward |
+| IN4 (Right motor direction B) | **GPIO 23** | Right backward |
+| ENB (Right motor speed/PWM) | **GPIO 25** | Right speed control |
+| Driver GND | ESP32 GND | Common ground |
+| Driver logic VCC (5V, if separate from motor supply) | ESP32 5V or its own regulator | Logic power |
+| Motor power terminals (+ / –) | External battery pack | Do NOT power motors from the ESP32 |
+
+Connect your two DC motors to the driver's `OUT1/OUT2` (left) and `OUT3/OUT4` (right) screw terminals as usual for your specific driver board.
+
+**Wi-Fi:** SSID `Yoo` → dashboard/captive portal at `http://192.168.4.1`.
+> ⚠️ Note: the password inside the code (`AP_PASS`) is set to `123456798`, while the comment at the top of the file lists a different number (`8722519872`). **Trust the Serial Monitor output after boot** — it will print the exact password the board is actually using — and update the comment or the constant so they match.
+
+---
+
+## 🔌 CONNECTIONS GUIDE #3 — ESP32-CAM Video Module (Optional)
+*(`manhole_bot_espcam_servo_code.ino`, AI-Thinker ESP32-CAM board)*
+
+The camera itself is already wired to the board internally (OV2640 ribbon cable) — you don't need to wire the camera pins yourself. You only need to add the pan servo:
 
 | Part | Connect to |
 |---|---|
-| Servo Signal | GPIO 13 |
-| Flash LED | Built-in on GPIO 4 (no wiring needed) |
+| Servo Signal wire | **GPIO 13** |
+| Servo Power (red) | 5V (use an external 5V supply — the ESP32-CAM's onboard regulator can brown out under camera + servo load) |
+| Servo Ground | GND (shared with ESP32-CAM) |
+| Flash LED | Already built onto the board on **GPIO 4** — no wiring needed |
+| Status LED | Already built onto the board on **GPIO 33** — no wiring needed |
 
-> To upload code to ESP32-CAM you need a separate USB-to-TTL (FTDI) programmer, since it has no onboard USB port. Connect GPIO 0 to GND before powering on to enter flashing mode, then disconnect it after uploading.
+### Programming Note
+The ESP32-CAM has **no built-in USB port**, so you need a separate USB-to-TTL (FTDI) adapter to upload code:
+
+1. Wire FTDI **TX → U0R (RX)**, **RX → U0T (TX)**, **GND → GND**, **5V → 5V**.
+2. Connect **GPIO 0 to GND** before powering on — this puts the board into flashing mode.
+3. Upload the sketch.
+4. Disconnect GPIO 0 from GND and press the reset button to run the program normally.
+
+**Wi-Fi:** SSID `ESP32-CAM-PRO`, password `12345678` → `http://192.168.4.1`
+**Web login:** username `admin`, password `esp32cam`
 
 ---
 
 ## 🚀 Getting Started (Software Setup)
 
 ### Step 1 — Install Arduino IDE Libraries
-In Arduino IDE go to **Sketch → Include Library → Manage Libraries**, then install:
+**Sketch → Include Library → Manage Libraries**, then install:
 - `ESP32` (by Espressif Systems)
 - `ESP32Servo` (by Kevin Harrington)
 
 ### Step 2 — Upload the Code
-1. Open `Manhole_monitoring_bot_esp32code.ino` in Arduino IDE.
-2. Select your ESP32 board and correct COM port.
-3. Click **Upload**.
-4. (Optional) Repeat for the camera or robot sketches on separate boards.
+1. Open the `.ino` file for the module you're building.
+2. Select the matching board:
+   - Monitoring / robot sketches → your ESP32 Dev Board model
+   - Camera sketch → **AI Thinker ESP32-CAM**
+3. Select the correct COM port and click **Upload**.
 
-### Step 3 — Connect to the Dashboard
+### Step 3 — Connect & Open the Dashboard
+
 | Sketch | Wi-Fi Name (SSID) | Wi-Fi Password | Open in browser |
 |---|---|---|---|
 | Monitoring Node | `ESP32_ROBOT` | `12345678` | `http://192.168.4.1` |
-| Camera Node | `ESP32-CAM-PRO` | `12345678` | `http://192.168.4.1` (login: `admin` / `esp32cam`) |
-| Robot Controller | `Yoo` | `123456798`* | `http://192.168.4.1` (opens automatically) |
-
-\*Check your Serial Monitor after boot to confirm the exact password compiled into your board — the code comment and the actual password constant differ slightly in this sketch.
+| Camera Node | `ESP32-CAM-PRO` | `12345678` | `http://192.168.4.1` (login `admin` / `esp32cam`) |
+| Robot Controller | `Yoo` | `123456798` (verify in Serial Monitor) | `http://192.168.4.1` (opens automatically) |
 
 **Steps:**
 1. Power on the ESP32.
-2. On your phone or laptop, join the Wi-Fi network listed above.
+2. On your phone/laptop, join the Wi-Fi network above.
 3. Open a browser and go to `http://192.168.4.1`.
-4. The live dashboard/controller appears automatically.
+4. The dashboard/controller loads automatically.
 
 ---
 
@@ -179,7 +206,7 @@ In Arduino IDE go to **Sketch → Include Library → Manage Libraries**, then i
 | Endpoint | What it does |
 |---|---|
 | `/` | Loads the dashboard |
-| `/data` | Returns live sensor readings as JSON |
+| `/data` | Live sensor readings as JSON |
 | `/toggle_led` | Turns LED 1 on/off |
 | `/toggle_led2` | Turns LED 2 on/off |
 | `/servo?pos=<0-180>` | Moves the servo to an angle |
@@ -187,32 +214,34 @@ In Arduino IDE go to **Sketch → Include Library → Manage Libraries**, then i
 ### Camera Node (needs login)
 | Endpoint | What it does |
 |---|---|
-| `/stream` | Live video feed |
-| `/capture` | Downloads one photo |
+| `/stream` | Live MJPEG video feed |
+| `/capture` | Downloads one JPEG photo |
 | `/toggle_flash` | Turns the flash LED on/off |
 | `/servo?angle=<0-180>` | Moves the pan servo |
-| `/control?var=<name>&val=<value>` | Adjusts brightness, contrast, resolution, effects, flip/mirror |
+| `/control?var=<name>&val=<value>` | Sets `framesize`, `brightness`, `contrast`, `vflip`, `hmirror`, or `special_effect` |
 
 ### Robot Controller
 | Endpoint | What it does |
 |---|---|
 | `/cmd?dir=forward\|backward\|left\|right\|stop` | Moves the robot |
-| `/speed?val=<0-255>` | Sets motor speed |
+| `/speed?val=<0-255>` | Sets motor PWM speed |
 
 ---
 
-## 🚦 What the Colors Mean
+## 🚦 What the Dashboard Colors Mean
 
 - **Distance sensors:** 🔴 Danger under 15 cm · 🟡 Warning under 35 cm · 🟢 Clear otherwise
-- **Gas sensor:** 🟢 Clean under 500 · 🟡 Moderate under 1500 · 🟠 High under 3000 · 🔴 Danger at 3000+
-- These numbers are just starting points — adjust them in the code to match your site's real safety rules.
+- **Gas sensor (raw ADC):** 🟢 Clean under 500 · 🟡 Moderate under 1500 · 🟠 High under 3000 · 🔴 Danger at 3000+
+
+These thresholds live in the dashboard's JavaScript — adjust them to match your site's real safety rules before deployment.
 
 ---
 
 ## 🔐 Before Real-World Use
 
-- Change all default Wi-Fi names/passwords and the camera login (`admin` / `esp32cam`) in the code.
-- Use a proper regulated 5V power supply — phone chargers can be unstable under servo/camera load.
+- Change every default Wi-Fi name/password and the camera login (`admin` / `esp32cam`).
+- Fix the SSID password mismatch in `esp32_web_robot.ino` (see Connections Guide #2 note above).
+- Use a proper regulated 5V power supply for servos/motors — phone chargers and USB power banks can brown out under load.
 - Test every sensor individually before final assembly.
 
 ---
@@ -221,11 +250,12 @@ In Arduino IDE go to **Sketch → Include Library → Manage Libraries**, then i
 
 | Problem | Try this |
 |---|---|
-| Numbers look "too smooth" or fake | That sensor isn't wired correctly — the code fills in a placeholder signal so the dashboard never freezes |
-| Servo doesn't move | Check it's on GPIO 33 (or 13 for camera), and power it from a separate 5V source |
-| Can't open the dashboard | Make sure you joined the ESP32's own Wi-Fi, not your home Wi-Fi |
-| Camera page says "401 Unauthorized" | Double check username/password match the code |
-| Ultrasonic readings jump around | Add the ECHO voltage divider mentioned above, and keep sensors away from soft/angled surfaces |
+| Sensor numbers look "too smooth" or don't change with reality | That sensor is wired incorrectly — the firmware fills in a placeholder signal so the dashboard never freezes |
+| Servo doesn't move | Confirm it's on the correct GPIO for that sketch (33 for monitoring node, 13 for camera node), and power it from a separate 5V source |
+| Can't open the dashboard | Make sure you joined the ESP32's own Wi-Fi network, not your home Wi-Fi |
+| Camera page says "401 Unauthorized" | Username/password doesn't match what's set in the code |
+| Robot doesn't respond / Wi-Fi password fails | Check the Serial Monitor for the exact password actually flashed to the board |
+| Ultrasonic readings jump around | Add the ECHO voltage divider mentioned above; keep sensors away from soft or angled surfaces |
 
 ---
 
@@ -234,7 +264,7 @@ In Arduino IDE go to **Sketch → Include Library → Manage Libraries**, then i
 - [ ] Add a buzzer or SMS/Telegram alert when danger thresholds are hit
 - [ ] Log data to an SD card or the cloud for history/trends
 - [ ] Add a battery level indicator
-- [ ] Merge the camera and sensor dashboards into one page
+- [ ] Merge the camera and sensor dashboards into a single page
 
 ---
 
